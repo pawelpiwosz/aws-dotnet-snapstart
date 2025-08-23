@@ -1,0 +1,86 @@
+AWSTemplateFormatVersion: '2010-09-09'
+Transform: AWS::Serverless-2016-10-31
+Description: SAM template for .NET Lambda function to update a counter in DynamoDB
+
+Resources:
+  CounterTable:
+    Type: AWS::DynamoDB::Table
+    Properties:
+      TableName: CounterTable
+      AttributeDefinitions:
+        - AttributeName: Counter
+          AttributeType: S
+      KeySchema:
+        - AttributeName: Counter
+          KeyType: HASH
+      ProvisionedThroughput:
+        ReadCapacityUnits: 1
+        WriteCapacityUnits: 1
+
+  DotnetLambdaFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      Handler: DotnetLambdaFunction::DotnetLambdaFunction.FunctionHandler::HandleAsync
+      Runtime: dotnet8
+      CodeUri: C:/Users/pawel/GIT/dotnetsnapstart/dotnet-lambda-sam-app/src/DotnetLambdaFunction/bin/Release/net8.0/linux-x64/publish/
+      MemorySize: 512
+      Timeout: 30
+      Tracing: Active
+      Layers:
+        - !Sub arn:aws:lambda:${AWS::Region}:580247275435:layer:LambdaInsightsExtension:14
+      Environment:
+        Variables:
+          POWERTOOLS_METRICS_NAMESPACE: DotnetLambdaCounter
+          POWERTOOLS_SERVICE_NAME: CounterService
+          TABLE_NAME: !Ref CounterTable
+          AWS_LAMBDA_DOTNET_PREJIT: always
+      Policies:
+        - DynamoDBCrudPolicy:
+            TableName: !Ref CounterTable
+        - AWSXrayWriteOnlyAccess
+        - CloudWatchLambdaInsightsExecutionRolePolicy
+      Events:
+        Api:
+          Type: Api
+          Properties:
+            RestApiId: !Ref ApiGateway
+            Path: /update-counter
+            Method: post
+      SnapStart:
+        ApplyOn: PublishedVersions
+      AutoPublishAlias: live
+      DeploymentPreference:
+        Type: AllAtOnce
+      VersionDescription: !Sub ${AWS::StackName}-${AWS::StackId}
+
+  ApiGateway:
+    Type: AWS::Serverless::Api
+    Properties:
+      Name: DotnetLambdaApi
+      TracingEnabled: true
+      BinaryMediaTypes:
+        - "*/*"
+      EndpointConfiguration: REGIONAL
+      StageName: Prod
+      MethodSettings:
+        - HttpMethod: "*"
+          ResourcePath: "/*"
+          MetricsEnabled: true
+          DataTraceEnabled: true
+          LoggingLevel: INFO
+          ThrottlingBurstLimit: 10
+          ThrottlingRateLimit: 10
+
+Outputs:
+  ApiUrl:
+    Description: "API Gateway endpoint URL for Prod environment"
+    Value: !Sub "https://${ApiGateway}.execute-api.${AWS::Region}.amazonaws.com/Prod/update-counter"
+  CounterTableName:
+    Description: "DynamoDB table name"
+    Value: !Ref CounterTable
+  FunctionVersion:
+    Description: "Lambda function version"
+    Value: !Ref DotnetLambdaFunction.Version
+  FunctionAlias:
+    Description: "Lambda function alias"
+    Value: !Ref DotnetLambdaFunction.Alias

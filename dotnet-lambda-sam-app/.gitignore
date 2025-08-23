@@ -1,0 +1,54 @@
+# .NET build output
+bin/
+obj/
+*.dll
+*.pdb
+*.exe
+
+# VS Code
+.vscode/*
+!.vscode/settings.json
+!.vscode/tasks.json
+!.vscode/launch.json
+!.vscode/extensions.json
+
+# AWS SAM
+.aws-sam/
+samconfig.toml
+packaged.yaml
+
+# .NET
+*.suo
+*.user
+*.userosscache
+*.sln.docstates
+[Dd]ebug/
+[Rr]elease/
+x64/
+x86/
+build/
+bld/
+[Bb]in/
+[Oo]bj/
+msbuild.log
+msbuild.err
+msbuild.wrn
+
+# User-specific files
+*.rsuser
+*.suo
+*.user
+*.userosscache
+*.sln.docstates
+*.userprefs
+
+# Rider
+.idea/
+*.sln.iml
+
+# Local development settings
+appsettings.Development.json
+local.settings.json
+
+# AWS Lambda Tools
+.lambda-test-tool/

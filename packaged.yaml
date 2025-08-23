@@ -1,0 +1,57 @@
+AWSTemplateFormatVersion: '2010-09-09'
+Transform: AWS::Serverless-2016-10-31
+Description: SAM template for .NET Lambda function to update a counter in DynamoDB
+Resources:
+  CounterTable:
+    Type: AWS::DynamoDB::Table
+    Properties:
+      TableName: CounterTable
+      AttributeDefinitions:
+      - AttributeName: id
+        AttributeType: S
+      KeySchema:
+      - AttributeName: id
+        KeyType: HASH
+      ProvisionedThroughput:
+        ReadCapacityUnits: 1
+        WriteCapacityUnits: 1
+    Metadata:
+      SamResourceId: CounterTable
+  DotnetLambdaFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      Handler: src/DotnetLambdaFunction::DotnetLambdaFunction.FunctionHandler::HandleAsync
+      Runtime: dotnet6
+      CodeUri: s3://academybucket/ebee671ecf2c652732b56b5d7e7a4cc6
+      MemorySize: 128
+      Timeout: 30
+      Policies:
+      - DynamoDBCrudPolicy:
+          TableName:
+            Ref: CounterTable
+      Events:
+        Api:
+          Type: Api
+          Properties:
+            RestApiId:
+              Ref: ApiGateway
+            Path: /update-counter
+            Method: post
+    Metadata:
+      SamResourceId: DotnetLambdaFunction
+  ApiGateway:
+    Type: AWS::Serverless::Api
+    Properties:
+      Name: DotnetLambdaApi
+      StageName: Prod
+    Metadata:
+      SamResourceId: ApiGateway
+Outputs:
+  ApiUrl:
+    Description: API Gateway endpoint URL for Prod environment
+    Value:
+      Fn::Sub: https://${ApiGateway}.execute-api.${AWS::Region}.amazonaws.com/Prod/update-counter
+  CounterTableName:
+    Description: DynamoDB table name
+    Value:
+      Ref: CounterTable

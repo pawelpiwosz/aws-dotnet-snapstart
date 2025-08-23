@@ -1,0 +1,25 @@
+{
+  "Information": [
+    {
+      "FunctionName": "DotnetLambdaFunction",
+      "FunctionHandler": "DotnetLambdaFunction::DotnetLambdaFunction.Function::FunctionHandler",
+      "Description": "A Lambda function to update a counter in DynamoDB.",
+      "PackageType": "Zip",
+      "Runtime": "dotnet6",
+      "MemorySize": 128,
+      "Timeout": 30,
+      "Environment": {
+        "DynamoDBTableName": "YourDynamoDBTableName"
+      },
+      "Role": "arn:aws:iam::your-account-id:role/your-lambda-role"
+    }
+  ],
+  "framework": "net6.0",
+  "configuration": {
+    "Default": {
+      "FunctionName": "DotnetLambdaFunction",
+      "Handler": "DotnetLambdaFunction::DotnetLambdaFunction.Function::FunctionHandler",
+      "Runtime": "dotnet6"
+    }
+  }
+}
