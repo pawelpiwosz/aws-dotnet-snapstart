@@ -1,19 +1,16 @@
-#!/bin/zsh
+#!/bin/bash
 
-# Quick Load Test Script - Simplified version for rapid testing
-# Usage: ./quick-load-test.zsh [requests] [concurrency]
+# Quick Load Test Script (Linux/Bash)
+# Simplified version for rapid testing using hey
+# Requirements: hey (install with: sudo apt install hey or download from https://github.com/rakyll/hey)
 
 set -e
 
-
-
 # Usage:
-#   ./quick-load-test.zsh --baseurl https://myapi.com [requests] [concurrency]
-#   BASE_URL=https://myapi.com ./quick-load-test.zsh [requests] [concurrency]
+#   ./quick-load-test.sh --baseurl https://myapi.com [requests] [concurrency]
+#   BASE_URL=https://myapi.com ./quick-load-test.sh [requests] [concurrency]
 #   If neither is provided, uses default placeholder.
 
-
-# Parse arguments for --baseurl
 BASE_URL_ARG=""
 POSITIONAL=()
 while [[ $# -gt 0 ]]; do
@@ -40,8 +37,8 @@ else
     exit 1
 fi
 
-REQUESTS=${1:-100}    # Default 100 requests if not specified
-CONCURRENCY=${2:-10}  # Default 10 concurrent if not specified
+REQUESTS=${1:-100}
+CONCURRENCY=${2:-10}
 
 # Colors
 GREEN='\033[0;32m'
@@ -50,10 +47,10 @@ BLUE='\033[0;34m'
 CYAN='\033[0;36m'
 NC='\033[0m'
 
-# Endpoints in performance order (best to worst expected)
+# Endpoints in performance order
 ENDPOINTS=(
     "optimized-snapstart:OptimizedSnapStart"
-    "optimized:Optimized" 
+    "optimized:Optimized"
     "update-counter:Original"
     "non-performant-snapstart:NonPerf+SnapStart"
     "non-performant:NonPerformant"
@@ -63,22 +60,14 @@ echo -e "${BLUE}Quick Load Test - .NET Lambda SnapStart Performance${NC}"
 echo -e "${CYAN}Requests: $REQUESTS | Concurrency: $CONCURRENCY${NC}"
 echo ""
 
-
 for endpoint_info in "${ENDPOINTS[@]}"; do
-    IFS=':' read -r endpoint name <<< "$endpoint_info"
+    IFS=":" read -r endpoint endpoint_label <<< "$endpoint_info"
     url="$BASE_URL/$endpoint"
-
-    echo -e "${YELLOW}Testing $name ($endpoint)...${NC}"
-
-    # Run quick test and extract key metrics using hey
+    echo -e "${YELLOW}Testing $endpoint_label at $url${NC}"
     result=$(hey -n "$REQUESTS" -c "$CONCURRENCY" -m POST -T "application/json" "$url" 2>/dev/null | \
-             grep -E "(Requests/sec:|Average:|Non-2xx|50%|95%)")
-
-    echo "$result" | sed 's/^/  /'
-    echo ""
-
-    # Brief pause between tests
-    sleep 5
+        grep -E "Requests/sec:|Average:|Non-2xx|50%|95%" || true)
+    echo -e "$result"
+    echo "---"
 done
 
 echo -e "${GREEN}✓ Quick load testing complete!${NC}"

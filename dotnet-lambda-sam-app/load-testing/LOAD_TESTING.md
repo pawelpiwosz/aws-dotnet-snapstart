@@ -60,11 +60,17 @@ cd load-testing
 .\batch-load-test.ps1 -BaseUrl "<known_after_deployment>"
 ```
 
-### macOS/Linux Scripts (Apache Bench)
 
-#### 1. `load-test.zsh` - Comprehensive Load Testing (macOS)
+### macOS/Linux Scripts (hey)
 
-The main script that performs thorough load testing with detailed reporting using Apache Bench.
+All zsh scripts now use [`hey`](https://github.com/rakyll/hey) for load testing. Install it with:
+```bash
+brew install hey
+```
+
+#### 1. `load-test.zsh` - Comprehensive Load Testing (macOS/Linux)
+
+The main script that performs thorough load testing with detailed reporting using hey.
 
 **Features:**
 - Tests all 5 Lambda endpoints
@@ -78,12 +84,12 @@ The main script that performs thorough load testing with detailed reporting usin
 ```bash
 cd load-testing
 chmod +x load-test.zsh
-./load-test.zsh
+./load-test.zsh --baseurl https://your-api-url
 ```
 
-#### 2. `quick-load-test.zsh` - Rapid Testing (macOS)
+#### 2. `quick-load-test.zsh` - Rapid Testing (macOS/Linux)
 
-Simplified script for quick performance checks using Apache Bench.
+Simplified script for quick performance checks using hey.
 
 **Usage:**
 ```bash
@@ -91,15 +97,15 @@ cd load-testing
 chmod +x quick-load-test.zsh
 
 # Default: 100 requests, 10 concurrent
-./quick-load-test.zsh
+./quick-load-test.zsh --baseurl https://your-api-url
 
 # Custom: 200 requests, 20 concurrent  
-./quick-load-test.zsh 200 20
+./quick-load-test.zsh --baseurl https://your-api-url 200 20
 ```
 
-#### 3. `batch-load-test.zsh` - Multi-Scenario Testing (macOS)
+#### 3. `batch-load-test.zsh` - Multi-Scenario Testing (macOS/Linux)
 
-Runs multiple test scenarios with different load levels to understand performance scaling.
+Runs multiple test scenarios with different load levels to understand performance scaling using hey.
 
 **Features:**
 - Multiple load scenarios (Light, Medium, Heavy, Stress)
@@ -110,7 +116,7 @@ Runs multiple test scenarios with different load levels to understand performanc
 ```bash
 cd load-testing
 chmod +x batch-load-test.zsh
-./batch-load-test.zsh
+./batch-load-test.zsh --baseurl https://your-api-url
 ```
 
 ### Configuration Files

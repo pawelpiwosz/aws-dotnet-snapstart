@@ -1,13 +1,42 @@
 #!/bin/zsh
 
+
 # .NET Lambda SnapStart Load Testing Script
 # This script performs load testing on all Lambda endpoints to demonstrate performance differences
-# Requirements: Apache Bench (ab) - install with: brew install httpd
+# Requirements: hey (install with: brew install hey)
 
 set -e
 
-# Configuration
-BASE_URL="<known_after_deployment>"
+
+# Usage:
+#   ./load-test.zsh --baseurl https://myapi.com
+#   BASE_URL=https://myapi.com ./load-test.zsh
+#   If neither is provided, uses default placeholder.
+#
+# This script now uses 'hey' for load testing instead of 'ab'.
+
+
+# Parse arguments for --baseurl
+BASE_URL_ARG=""
+while [[ $# -gt 0 ]]; do
+    case $1 in
+        --baseurl)
+            shift
+            BASE_URL_ARG="$1"
+            ;;
+    esac
+    shift
+done
+
+if [[ -n "$BASE_URL_ARG" ]]; then
+    BASE_URL="$BASE_URL_ARG"
+elif [[ -n "$BASE_URL" ]]; then
+    BASE_URL="$BASE_URL"
+else
+    BASE_URL="<known_after_deployment>"
+fi
+
+
 TOTAL_REQUESTS=1000
 CONCURRENT_USERS=25
 RESULTS_DIR="load-test-results"
@@ -22,7 +51,8 @@ MAGENTA='\033[0;35m'
 CYAN='\033[0;36m'
 NC='\033[0m' # No Color
 
-# Function definitions
+
+# Endpoints to test
 declare -A ENDPOINTS=(
     ["optimized-snapstart"]="OptimizedSnapStart (Best Performance)"
     ["optimized"]="Optimized (Good Baseline)"
@@ -33,6 +63,27 @@ declare -A ENDPOINTS=(
 
 # Create results directory
 mkdir -p "$RESULTS_DIR"
+
+echo -e "${BLUE}Load Test - .NET Lambda SnapStart Performance${NC}"
+echo -e "${CYAN}Requests: $TOTAL_REQUESTS | Concurrency: $CONCURRENT_USERS${NC}"
+echo ""
+
+for endpoint in "${(@k)ENDPOINTS}"; do
+    endpoint_name=${ENDPOINTS[$endpoint]}
+    url="$BASE_URL/$endpoint"
+    result_file="$RESULTS_DIR/${endpoint}_$TIMESTAMP.txt"
+    echo -e "${YELLOW}Testing $endpoint_name at $url${NC}"
+    # Run hey and save output
+    hey -n "$TOTAL_REQUESTS" -c "$CONCURRENT_USERS" -m POST -T "application/json" "$url" > "$result_file" 2>&1
+    if [[ $? -eq 0 ]]; then
+        echo -e "${GREEN}Completed: $endpoint_name${NC}"
+    else
+        echo -e "${RED}Failed: $endpoint_name${NC}"
+    fi
+    echo "---"
+done
+
+echo -e "${BLUE}All tests completed. Results saved in $RESULTS_DIR${NC}"
 
 print_header() {
     echo -e "${MAGENTA}╔═══════════════════════════════════════════════════════════════╗${NC}"
@@ -156,8 +207,8 @@ run_load_test() {
     echo "Failed Requests: ${failed_requests:-N/A}" >> "$output_file"
     
     # Wait between tests to allow for cleanup
-    echo -e "${CYAN}Waiting 30 seconds before next test...${NC}"
-    sleep 30
+    echo -e "${CYAN}Waiting 10 seconds before next test...${NC}"
+    sleep 10
 }
 
 generate_summary() {

@@ -6,7 +6,34 @@
 
 set -e
 
-BASE_URL="<known_after_deployment>"
+
+
+# Usage:
+#   ./batch-load-test.zsh --baseurl https://myapi.com
+#   BASE_URL=https://myapi.com ./batch-load-test.zsh
+#   If neither is provided, uses default placeholder.
+
+
+# Parse arguments for --baseurl
+BASE_URL_ARG=""
+while [[ $# -gt 0 ]]; do
+    case $1 in
+        --baseurl)
+            shift
+            BASE_URL_ARG="$1"
+            ;;
+    esac
+    shift
+done
+
+if [[ -n "$BASE_URL_ARG" ]]; then
+    BASE_URL="$BASE_URL_ARG"
+elif [[ -n "$BASE_URL" ]]; then
+    BASE_URL="$BASE_URL"
+else
+    BASE_URL="<known_after_deployment>"
+fi
+
 RESULTS_DIR="batch-test-results"
 TIMESTAMP=$(date +"%Y%m%d_%H%M%S")
 
@@ -80,26 +107,27 @@ run_batch_test() {
         
         echo -e "${YELLOW}  Testing $name ($endpoint)...${NC}"
         
-        # Run Apache Bench test
-        ab -n "$requests" -c "$concurrency" -p /dev/null -T "application/json" "$url" > "$endpoint_file" 2>&1
-        
-        # Extract metrics
-        local mean_time=$(grep "Time per request:" "$endpoint_file" | head -1 | awk '{print $4}')
-        local rps=$(grep "Requests per second:" "$endpoint_file" | awk '{print $4}')
-        local failed=$(grep "Failed requests:" "$endpoint_file" | awk '{print $3}')
-        local p50=$(grep "50%" "$endpoint_file" | awk '{print $2}')
-        local p95=$(grep "95%" "$endpoint_file" | awk '{print $2}')
-        
-        echo -e "    ${GREEN}Mean: ${mean_time}ms | RPS: ${rps} | Failed: ${failed}${NC}"
-        
-        # Add to summary
-        echo "$name ($endpoint):" >> "$summary_file"
-        echo "  Mean Response Time: ${mean_time} ms" >> "$summary_file"
-        echo "  Requests/Second: ${rps}" >> "$summary_file"  
-        echo "  Failed Requests: ${failed}" >> "$summary_file"
-        echo "  50th Percentile: ${p50} ms" >> "$summary_file"
-        echo "  95th Percentile: ${p95} ms" >> "$summary_file"
-        echo "" >> "$summary_file"
+
+    # Run hey test
+    hey -n "$requests" -c "$concurrency" -m POST -T "application/json" "$url" > "$endpoint_file" 2>&1
+
+    # Extract metrics from hey output
+    local mean_time=$(grep "Average:" "$endpoint_file" | awk '{print $2}')
+    local rps=$(grep "Requests/sec:" "$endpoint_file" | awk '{print $2}')
+    local failed=$(grep "Non-2xx or 3xx responses:" "$endpoint_file" | awk '{print $5}')
+    local p50=$(grep "50%" "$endpoint_file" | awk '{print $2}')
+    local p95=$(grep "95%" "$endpoint_file" | awk '{print $2}')
+
+    echo -e "    ${GREEN}Mean: ${mean_time}s | RPS: ${rps} | Failed: ${failed:-0}${NC}"
+
+    # Add to summary
+    echo "$name ($endpoint):" >> "$summary_file"
+    echo "  Mean Response Time: ${mean_time} s" >> "$summary_file"
+    echo "  Requests/Second: ${rps}" >> "$summary_file"
+    echo "  Failed Requests: ${failed:-0}" >> "$summary_file"
+    echo "  50th Percentile: ${p50} s" >> "$summary_file"
+    echo "  95th Percentile: ${p95} s" >> "$summary_file"
+    echo "" >> "$summary_file"
         
         sleep 5  # Brief pause between endpoints
     done
