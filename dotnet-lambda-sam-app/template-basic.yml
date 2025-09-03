@@ -1,0 +1,110 @@
+AWSTemplateFormatVersion: '2010-09-09'
+Transform: AWS::Serverless-2016-10-31
+Description: .NET Lambda SnapStart Demo - Basic Function Only
+
+Globals:
+  Function:
+    Timeout: 30
+    MemorySize: 256
+    Runtime: dotnet8
+    Architectures:
+      - x86_64
+    Environment:
+      Variables:
+        POWERTOOLS_SERVICE_NAME: DotnetSnapStartDemo
+        POWERTOOLS_LOG_LEVEL: INFO
+        POWERTOOLS_TRACER_CAPTURE_RESPONSE: true
+        POWERTOOLS_TRACER_CAPTURE_ERROR: true
+        POWERTOOLS_METRICS_NAMESPACE: SnapStartDemo
+    Tracing: Active
+
+Parameters:
+  Environment:
+    Type: String
+    Default: dev
+    Description: Environment name
+
+Resources:
+  # DynamoDB Table for counter storage
+  CounterTable:
+    Type: AWS::DynamoDB::Table
+    Properties:
+      TableName: CounterTable
+      AttributeDefinitions:
+        - AttributeName: counter_key
+          AttributeType: S
+      KeySchema:
+        - AttributeName: counter_key
+          KeyType: HASH
+      BillingMode: PAY_PER_REQUEST
+      SSESpecification:
+        SSEEnabled: true
+      PointInTimeRecoverySpecification:
+        PointInTimeRecoveryEnabled: false
+      Tags:
+        - Key: Environment
+          Value: !Ref Environment
+        - Key: Project
+          Value: DotnetSnapStartDemo
+
+  # API Gateway
+  ApiGateway:
+    Type: AWS::Serverless::Api
+    Properties:
+      Name: !Sub DotnetSnapStartApi-${Environment}
+      StageName: !Ref Environment
+      TracingEnabled: true
+      MethodSettings:
+        - ResourcePath: "/*"
+          HttpMethod: "*"
+          LoggingLevel: INFO
+          DataTraceEnabled: true
+          MetricsEnabled: true
+
+  # Basic Lambda Function (no SnapStart)
+  BasicLambdaFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      FunctionName: !Sub DotnetSnapStart-Basic-${Environment}
+      CodeUri: src/DotnetLambdaFunction/
+      Handler: DotnetLambdaFunction::DotnetLambdaFunction.FunctionHandler::HandleAsync
+      Description: Basic .NET Lambda function without SnapStart for performance comparison
+      Environment:
+        Variables:
+          DYNAMODB_TABLE_NAME: !Ref CounterTable
+          LAMBDA_TYPE: BasicFunction
+      Policies:
+        - DynamoDBCrudPolicy:
+            TableName: !Ref CounterTable
+        - CloudWatchPutMetricPolicy: {}
+        - XRayWriteOnlyAccess
+      Events:
+        ApiEvent:
+          Type: Api
+          Properties:
+            RestApiId: !Ref ApiGateway
+            Path: /basic
+            Method: GET
+
+Outputs:
+  ApiGatewayUrl:
+    Description: API Gateway endpoint URL
+    Value: !Sub "https://${ApiGateway}.execute-api.${AWS::Region}.amazonaws.com/${Environment}"
+    Export:
+      Name: !Sub "${AWS::StackName}-ApiGatewayUrl"
+
+  BasicFunctionArn:
+    Description: Basic Lambda Function ARN
+    Value: !GetAtt BasicLambdaFunction.Arn
+    Export:
+      Name: !Sub "${AWS::StackName}-BasicFunctionArn"
+
+  CounterTableName:
+    Description: DynamoDB Counter Table Name
+    Value: !Ref CounterTable
+    Export:
+      Name: !Sub "${AWS::StackName}-CounterTableName"
+
+  BasicFunctionUrl:
+    Description: Basic Function API URL
+    Value: !Sub "https://${ApiGateway}.execute-api.${AWS::Region}.amazonaws.com/${Environment}/basic"

@@ -1,6 +1,12 @@
 AWSTemplateFormatVersion: '2010-09-09'
 Transform: AWS::Serverless-2016-10-31
-Description: SAM template for .NET Lambda function to update a counter in DynamoDB
+Description: SAM template for .NET Lambda functions demonstrating performance characteristics
+
+Parameters:
+  Environment:
+    Type: String
+    Default: dev
+    Description: Environment name
 
 Resources:
   CounterTable:
@@ -14,33 +20,41 @@ Resources:
         - AttributeName: Counter
           KeyType: HASH
       ProvisionedThroughput:
-        ReadCapacityUnits: 1
-        WriteCapacityUnits: 1
+        ReadCapacityUnits: 5
+        WriteCapacityUnits: 5
 
+  # Original Lambda (now with SnapStart)
   DotnetLambdaFunction:
     Type: AWS::Serverless::Function
     Properties:
       Handler: DotnetLambdaFunction::DotnetLambdaFunction.FunctionHandler::HandleAsync
       Runtime: dotnet8
-      CodeUri: C:/Users/pawel/GIT/dotnetsnapstart/dotnet-lambda-sam-app/src/DotnetLambdaFunction/bin/Release/net8.0/linux-x64/publish/
+      CodeUri: src/DotnetLambdaFunction/
       MemorySize: 512
       Timeout: 30
       Tracing: Active
-      Layers:
-        - !Sub arn:aws:lambda:${AWS::Region}:580247275435:layer:LambdaInsightsExtension:14
       Environment:
         Variables:
           POWERTOOLS_METRICS_NAMESPACE: DotnetLambdaCounter
           POWERTOOLS_SERVICE_NAME: CounterService
+          POWERTOOLS_TRACER_CAPTURE_RESPONSE: true
+          POWERTOOLS_TRACER_CAPTURE_ERROR: true
+          POWERTOOLS_LOG_LEVEL: INFO
+          _X_AMZN_TRACE_ID: !Ref AWS::NoValue
           TABLE_NAME: !Ref CounterTable
           AWS_LAMBDA_DOTNET_PREJIT: always
       Policies:
         - DynamoDBCrudPolicy:
             TableName: !Ref CounterTable
         - AWSXrayWriteOnlyAccess
-        - CloudWatchLambdaInsightsExecutionRolePolicy
       Events:
-        Api:
+        GetApi:
+          Type: Api
+          Properties:
+            RestApiId: !Ref ApiGateway
+            Path: /update-counter
+            Method: get
+        PostApi:
           Type: Api
           Properties:
             RestApiId: !Ref ApiGateway
@@ -51,7 +65,230 @@ Resources:
       AutoPublishAlias: live
       DeploymentPreference:
         Type: AllAtOnce
-      VersionDescription: !Sub ${AWS::StackName}-${AWS::StackId}
+
+  # 1. Non-Performant Lambda (Dynamic compilation, no SnapStart)
+  NonPerformantLambda:
+    Type: AWS::Serverless::Function
+    Properties:
+      Handler: NonPerformantLambda::NonPerformantLambda.FunctionHandler::HandleAsync
+      Runtime: dotnet8
+      CodeUri: src/NonPerformantLambda/
+      MemorySize: 512
+      Timeout: 30
+      Tracing: Active
+      Environment:
+        Variables:
+          POWERTOOLS_METRICS_NAMESPACE: NonPerformantLambda
+          POWERTOOLS_SERVICE_NAME: NonPerformantService
+          POWERTOOLS_TRACER_CAPTURE_RESPONSE: true
+          POWERTOOLS_TRACER_CAPTURE_ERROR: true
+          POWERTOOLS_LOG_LEVEL: INFO
+          _X_AMZN_TRACE_ID: !Ref AWS::NoValue
+          TABLE_NAME: !Ref CounterTable
+      Policies:
+        - DynamoDBCrudPolicy:
+            TableName: !Ref CounterTable
+        - AWSXrayWriteOnlyAccess
+        - S3ReadPolicy:
+            BucketName: "*"
+        - SQSPollerPolicy:
+            QueueName: "*"
+        - Statement:
+            - Effect: Allow
+              Action:
+                - secretsmanager:GetSecretValue
+                - secretsmanager:DescribeSecret
+              Resource: "*"
+        - Statement:
+            - Effect: Allow
+              Action:
+                - cloudwatch:GetMetricStatistics
+                - cloudwatch:ListMetrics
+              Resource: "*"
+      Events:
+        GetApi:
+          Type: Api
+          Properties:
+            RestApiId: !Ref ApiGateway
+            Path: /non-performant
+            Method: get
+        PostApi:
+          Type: Api
+          Properties:
+            RestApiId: !Ref ApiGateway
+            Path: /non-performant
+            Method: post
+
+  # 2. Optimized Lambda (No dynamic compilation, no SnapStart)
+  OptimizedLambda:
+    Type: AWS::Serverless::Function
+    Properties:
+      Handler: OptimizedLambda::OptimizedLambda.FunctionHandler::HandleAsync
+      Runtime: dotnet8
+      CodeUri: src/OptimizedLambda/
+      MemorySize: 512
+      Timeout: 30
+      Tracing: Active
+      Environment:
+        Variables:
+          POWERTOOLS_METRICS_NAMESPACE: OptimizedLambda
+          POWERTOOLS_SERVICE_NAME: OptimizedService
+          POWERTOOLS_TRACER_CAPTURE_RESPONSE: true
+          POWERTOOLS_TRACER_CAPTURE_ERROR: true
+          POWERTOOLS_LOG_LEVEL: INFO
+          _X_AMZN_TRACE_ID: !Ref AWS::NoValue
+          TABLE_NAME: !Ref CounterTable
+          AWS_LAMBDA_DOTNET_PREJIT: always
+      Policies:
+        - DynamoDBCrudPolicy:
+            TableName: !Ref CounterTable
+        - AWSXrayWriteOnlyAccess
+        - S3ReadPolicy:
+            BucketName: "*"
+        - SQSPollerPolicy:
+            QueueName: "*"
+        - Statement:
+            - Effect: Allow
+              Action:
+                - secretsmanager:GetSecretValue
+                - secretsmanager:DescribeSecret
+              Resource: "*"
+        - Statement:
+            - Effect: Allow
+              Action:
+                - cloudwatch:GetMetricStatistics
+                - cloudwatch:ListMetrics
+              Resource: "*"
+      Events:
+        GetApi:
+          Type: Api
+          Properties:
+            RestApiId: !Ref ApiGateway
+            Path: /optimized
+            Method: get
+        PostApi:
+          Type: Api
+          Properties:
+            RestApiId: !Ref ApiGateway
+            Path: /optimized
+            Method: post
+
+  # 3. Non-Performant SnapStart Lambda (Dynamic compilation + SnapStart)
+  NonPerformantSnapStartLambda:
+    Type: AWS::Serverless::Function
+    Properties:
+      Handler: NonPerformantSnapStartLambda::NonPerformantSnapStartLambda.FunctionHandler::HandleAsync
+      Runtime: dotnet8
+      CodeUri: src/NonPerformantSnapStartLambda/
+      MemorySize: 512
+      Timeout: 30
+      Tracing: Active
+      Environment:
+        Variables:
+          POWERTOOLS_METRICS_NAMESPACE: NonPerformantSnapStartLambda
+          POWERTOOLS_SERVICE_NAME: NonPerformantSnapStartService
+          POWERTOOLS_TRACER_CAPTURE_RESPONSE: true
+          POWERTOOLS_TRACER_CAPTURE_ERROR: true
+          POWERTOOLS_LOG_LEVEL: INFO
+          _X_AMZN_TRACE_ID: !Ref AWS::NoValue
+          TABLE_NAME: !Ref CounterTable
+      Policies:
+        - DynamoDBCrudPolicy:
+            TableName: !Ref CounterTable
+        - AWSXrayWriteOnlyAccess
+        - S3ReadPolicy:
+            BucketName: "*"
+        - SQSPollerPolicy:
+            QueueName: "*"
+        - Statement:
+            - Effect: Allow
+              Action:
+                - secretsmanager:GetSecretValue
+                - secretsmanager:DescribeSecret
+              Resource: "*"
+        - Statement:
+            - Effect: Allow
+              Action:
+                - cloudwatch:GetMetricStatistics
+                - cloudwatch:ListMetrics
+              Resource: "*"
+      Events:
+        GetApi:
+          Type: Api
+          Properties:
+            RestApiId: !Ref ApiGateway
+            Path: /non-performant-snapstart
+            Method: get
+        PostApi:
+          Type: Api
+          Properties:
+            RestApiId: !Ref ApiGateway
+            Path: /non-performant-snapstart
+            Method: post
+      SnapStart:
+        ApplyOn: PublishedVersions
+      AutoPublishAlias: live
+      DeploymentPreference:
+        Type: AllAtOnce
+
+  # 4. Optimized SnapStart Lambda (No dynamic compilation + SnapStart)
+  OptimizedSnapStartLambda:
+    Type: AWS::Serverless::Function
+    Properties:
+      Handler: OptimizedSnapStartLambda::OptimizedSnapStartLambda.FunctionHandler::HandleAsync
+      Runtime: dotnet8
+      CodeUri: src/OptimizedSnapStartLambda/
+      MemorySize: 512
+      Timeout: 30
+      Tracing: Active
+      Environment:
+        Variables:
+          POWERTOOLS_METRICS_NAMESPACE: OptimizedSnapStartLambda
+          POWERTOOLS_SERVICE_NAME: OptimizedSnapStartService
+          POWERTOOLS_TRACER_CAPTURE_RESPONSE: true
+          POWERTOOLS_TRACER_CAPTURE_ERROR: true
+          POWERTOOLS_LOG_LEVEL: INFO
+          _X_AMZN_TRACE_ID: !Ref AWS::NoValue
+          TABLE_NAME: !Ref CounterTable
+          AWS_LAMBDA_DOTNET_PREJIT: always
+      Policies:
+        - DynamoDBCrudPolicy:
+            TableName: !Ref CounterTable
+        - AWSXrayWriteOnlyAccess
+        - S3ReadPolicy:
+            BucketName: "*"
+        - SQSPollerPolicy:
+            QueueName: "*"
+        - Statement:
+            - Effect: Allow
+              Action:
+                - secretsmanager:GetSecretValue
+                - secretsmanager:DescribeSecret
+              Resource: "*"
+        - Statement:
+            - Effect: Allow
+              Action:
+                - cloudwatch:GetMetricStatistics
+                - cloudwatch:ListMetrics
+              Resource: "*"
+      Events:
+        GetApi:
+          Type: Api
+          Properties:
+            RestApiId: !Ref ApiGateway
+            Path: /optimized-snapstart
+            Method: get
+        PostApi:
+          Type: Api
+          Properties:
+            RestApiId: !Ref ApiGateway
+            Path: /optimized-snapstart
+            Method: post
+      SnapStart:
+        ApplyOn: PublishedVersions
+      AutoPublishAlias: live
+      DeploymentPreference:
+        Type: AllAtOnce
 
   ApiGateway:
     Type: AWS::Serverless::Api
@@ -68,19 +305,34 @@ Resources:
           MetricsEnabled: true
           DataTraceEnabled: true
           LoggingLevel: INFO
-          ThrottlingBurstLimit: 10
-          ThrottlingRateLimit: 10
+          ThrottlingBurstLimit: 100
+          ThrottlingRateLimit: 50
 
 Outputs:
   ApiUrl:
     Description: "API Gateway endpoint URL for Prod environment"
+    Value: !Sub "https://${ApiGateway}.execute-api.${AWS::Region}.amazonaws.com/Prod/"
+  
+  OriginalLambdaUrl:
+    Description: "Original Lambda endpoint"
     Value: !Sub "https://${ApiGateway}.execute-api.${AWS::Region}.amazonaws.com/Prod/update-counter"
+  
+  NonPerformantUrl:
+    Description: "Non-Performant Lambda endpoint"
+    Value: !Sub "https://${ApiGateway}.execute-api.${AWS::Region}.amazonaws.com/Prod/non-performant"
+  
+  OptimizedUrl:
+    Description: "Optimized Lambda endpoint"
+    Value: !Sub "https://${ApiGateway}.execute-api.${AWS::Region}.amazonaws.com/Prod/optimized"
+  
+  NonPerformantSnapStartUrl:
+    Description: "Non-Performant SnapStart Lambda endpoint"
+    Value: !Sub "https://${ApiGateway}.execute-api.${AWS::Region}.amazonaws.com/Prod/non-performant-snapstart"
+  
+  OptimizedSnapStartUrl:
+    Description: "Optimized SnapStart Lambda endpoint"
+    Value: !Sub "https://${ApiGateway}.execute-api.${AWS::Region}.amazonaws.com/Prod/optimized-snapstart"
+  
   CounterTableName:
     Description: "DynamoDB table name"
     Value: !Ref CounterTable
-  FunctionVersion:
-    Description: "Lambda function version"
-    Value: !Ref DotnetLambdaFunction.Version
-  FunctionAlias:
-    Description: "Lambda function alias"
-    Value: !Ref DotnetLambdaFunction.Alias

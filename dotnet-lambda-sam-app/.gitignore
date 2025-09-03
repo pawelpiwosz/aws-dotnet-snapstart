@@ -52,3 +52,9 @@ local.settings.json
 
 # AWS Lambda Tools
 .lambda-test-tool/
+
+# Load test reports
+load-test-results/
+batch-test-results/
+quick-test-results/
+*.txt

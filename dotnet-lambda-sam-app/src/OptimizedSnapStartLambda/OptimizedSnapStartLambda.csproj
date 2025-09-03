@@ -1,0 +1,48 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <TargetFramework>net8.0</TargetFramework>
+    <AssemblyName>OptimizedSnapStartLambda</AssemblyName>
+    <RootNamespace>OptimizedSnapStartLambda</RootNamespace>
+    <OutputType>Library</OutputType>
+    <GenerateAssemblyInfo>false</GenerateAssemblyInfo>
+    <GenerateRuntimeConfigurationFiles>true</GenerateRuntimeConfigurationFiles>
+    <RuntimeIdentifier>linux-x64</RuntimeIdentifier>
+    <!-- Enable AOT optimizations for best SnapStart performance -->
+    <PublishReadyToRun>true</PublishReadyToRun>
+    <PublishTrimmed>false</PublishTrimmed>
+    <SelfContained>true</SelfContained>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <Nullable>enable</Nullable>
+    <!-- Optimize for size and startup -->
+    <PublishSingleFile>false</PublishSingleFile>
+    <DebugType>none</DebugType>
+    <DebugSymbols>false</DebugSymbols>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <PackageReference Include="Amazon.Lambda.Core" Version="2.2.0" />
+    <PackageReference Include="Amazon.Lambda.Serialization.SystemTextJson" Version="2.4.0" />
+    <PackageReference Include="Amazon.Lambda.APIGatewayEvents" Version="2.7.0" />
+    <PackageReference Include="AWSSDK.DynamoDBv2" Version="3.7.301.14" />
+    <PackageReference Include="AWSSDK.S3" Version="3.7.305.2" />
+    <PackageReference Include="AWSSDK.SQS" Version="3.7.301.39" />
+    <PackageReference Include="AWSSDK.SecretsManager" Version="3.7.301.40" />
+    <PackageReference Include="AWSSDK.CloudWatch" Version="3.7.301.39" />
+    <PackageReference Include="AWS.Lambda.Powertools.Logging" Version="1.4.5" />
+    <PackageReference Include="AWS.Lambda.Powertools.Metrics" Version="1.4.5" />
+    <PackageReference Include="AWS.Lambda.Powertools.Tracing" Version="1.4.5" />
+    <PackageReference Include="AWSSDK.Extensions.NETCore.Setup" Version="3.7.300" />
+    <PackageReference Include="System.Text.Json" Version="8.0.4" />
+  </ItemGroup>
+
+  <!-- Prevent trimming of AWS SDK types -->
+  <ItemGroup>
+    <TrimmerRootAssembly Include="AWSSDK.DynamoDBv2" />
+    <TrimmerRootAssembly Include="AWSSDK.S3" />
+    <TrimmerRootAssembly Include="AWSSDK.SQS" />
+    <TrimmerRootAssembly Include="AWSSDK.SecretsManager" />
+    <TrimmerRootAssembly Include="AWSSDK.CloudWatch" />
+  </ItemGroup>
+
+</Project>
