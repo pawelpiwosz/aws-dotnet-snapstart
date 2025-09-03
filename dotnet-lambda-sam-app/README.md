@@ -114,8 +114,6 @@ curl -X POST https://your-api-gateway-url/Prod/non-performant
 
 ## 📚 Documentation
 
-- **[PERFORMANCE_TESTING.md](PERFORMANCE_TESTING.md)** - Comprehensive testing guide with specific scenarios
-- **[DEPLOYMENT_STATUS.md](DEPLOYMENT_STATUS.md)** - Live endpoint URLs and status  
 - **[load-testing/LOAD_TESTING.md](load-testing/LOAD_TESTING.md)** - Load testing scripts for macOS with Apache Bench
 - **Individual Function READMEs** - Detailed explanation of each optimization approach
 
